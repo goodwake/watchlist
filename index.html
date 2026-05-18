@@ -369,22 +369,37 @@ body {
   </div>
 </div>
 
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
 <script>
-const STORAGE_KEY = 'watchlist_shared';
+const firebaseConfig = {
+  apiKey: "AIzaSyBWFrsYulUqWhaFDs_d1pop0M96IDqzx0s",
+  authDomain: "wakieswatchlist.firebaseapp.com",
+  databaseURL: "https://wakieswatchlist-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "wakieswatchlist",
+  storageBucket: "wakieswatchlist.firebasestorage.app",
+  messagingSenderId: "613121988439",
+  appId: "1:613121988439:web:c4f35481a193d6636c9012"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const watchlistRef = db.ref('watchlist');
 
 let watchlist = [];
 let draggedItem = null;
 
-function loadWatchlist() {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  watchlist = stored ? JSON.parse(stored) : [];
+// Load watchlist from Firebase
+watchlistRef.on('value', (snapshot) => {
+  watchlist = snapshot.val() || [];
   renderWatchlist();
-}
+});
 
 function saveWatchlist() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(watchlist));
-  window.dispatchEvent(new Event('storage'));
-  renderWatchlist();
+  watchlistRef.set(watchlist);
 }
 
 function addToWatchlist() {
@@ -533,14 +548,6 @@ document.getElementById('yearInput').addEventListener('keypress', (e) => {
     addToWatchlist();
   }
 });
-
-window.addEventListener('storage', (e) => {
-  if (e.key === STORAGE_KEY) {
-    loadWatchlist();
-  }
-});
-
-loadWatchlist();
 </script>
 
 </body>
