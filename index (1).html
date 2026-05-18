@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watchlist Sync</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0d0d0f;
+  --surface: #1a1a1d;
+  --surface-hover: #252528;
+  --border: #2d2d32;
+  --accent: #8b5a8b;
+  --accent-bright: #b882b8;
+  --text: #e8e8e8;
+  --text-dim: #9a9a9d;
+  --text-dimmer: #5a5a5d;
+  --success: #5fb882;
+  --danger: #d85a5a;
+  --imdb: #f5c518;
+  --mal: #2e51a2;
+}
+
+body {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  background-image: 
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(139, 90, 139, 0.03) 2px, rgba(139, 90, 139, 0.03) 4px);
+  animation: scanlines 8s linear infinite;
+}
+
+@keyframes scanlines {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 100%; }
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 3rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.5rem;
+}
+
+.header h1 {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-bright), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+  letter-spacing: -1px;
+}
+
+.header p {
+  font-size: 0.875rem;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.sync-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--success);
+  margin-top: 0.5rem;
+}
+
+.sync-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--success);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.search-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.search-bar input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.search-bar select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875rem;
+  cursor: pointer;
+  min-width: 140px;
+}
+
+.search-bar button {
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  padding: 10px 24px;
+  color: var(--text);
+  font-family: 'Azeret Mono', monospace;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.search-bar button:hover {
+  background: var(--accent-bright);
+}
+
+.search-bar button:active {
+  transform: scale(0.98);
+}
+
+.search-bar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.search-results {
+  margin-top: 1rem;
+}
+
+.result-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: border-color 0.2s;
+}
+
+.result-item:hover {
+  border-color: var(--accent);
+}
+
+.result-info h4 {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-info p {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+
+.source-badge {
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.source-badge.imdb {
+  background: var(--imdb);
+  color: #000;
+}
+
+.source-badge.mal {
+  background: var(--mal);
+  color: #fff;
+}
+
+.add-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 6px 16px;
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-btn:hover {
+  background: var(--accent);
+  color: var(--text);
+}
+
+.add-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.watchlist-section {
+  margin-top: 2rem;
+}
+
+.watchlist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.watchlist-header h3 {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.watchlist-count {
+  font-size: 0.8125rem;
+  color: var(--text-dimmer);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.watchlist-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: grab;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.watchlist-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+.watchlist-item:active {
+  cursor: grabbing;
+}
+
+.watchlist-item.dragging {
+  opacity: 0.4;
+}
+
+.watchlist-item.drag-over {
+  border-top: 3px solid var(--accent-bright);
+  padding-top: 11px;
+}
+
+.item-order {
+  font-family: 'Azeret Mono', monospace;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-dimmer);
+  min-width: 32px;
+  text-align: center;
+}
+
+.item-content {
+  flex: 1;
+}
+
+.item-content h4 {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-content p {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+}
+
+.remove-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 12px;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: rgba(216, 90, 90, 0.1);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--text-dimmer);
+  font-size: 0.875rem;
+}
+
+.empty-state::before {
+  content: '[ ]';
+  display: block;
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.3;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+.loading::after {
+  content: '...';
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: '.'; }
+  40% { content: '..'; }
+  60%, 100% { content: '...'; }
+}
+
+.error {
+  background: rgba(216, 90, 90, 0.1);
+  border: 1px solid var(--danger);
+  border-radius: 4px;
+  padding: 12px;
+  margin-top: 1rem;
+  color: var(--danger);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+  .search-bar {
+    flex-wrap: wrap;
+  }
+  
+  .search-bar input {
+    width: 100%;
+  }
+  
+  .search-bar select {
+    flex: 1;
+  }
+  
+  .header h1 {
+    font-size: 2rem;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>WATCHLIST.SYS</h1>
+    <p>shared movie & anime tracker</p>
+    <div class="sync-indicator">
+      <span class="sync-dot"></span>
+      <span>live sync enabled</span>
+    </div>
+  </div>
+
+  <div class="search-section">
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="search titles..." autocomplete="off">
+      <select id="sourceSelect">
+        <option value="omdb">IMDb</option>
+        <option value="jikan">MyAnimeList</option>
+      </select>
+      <button id="searchBtn">search</button>
+    </div>
+    <div id="searchResults"></div>
+  </div>
+
+  <div class="watchlist-section">
+    <div class="watchlist-header">
+      <h3>queue</h3>
+      <span class="watchlist-count" id="listCount">0 items</span>
+    </div>
+    <div id="watchlist"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'watchlist_shared';
+const OMDB_API = 'https://www.omdbapi.com/?apikey=b9a13c93';
+const JIKAN_API = 'https://api.jikan.moe/v4';
+
+let watchlist = [];
+let draggedItem = null;
+
+function loadWatchlist() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  watchlist = stored ? JSON.parse(stored) : [];
+  renderWatchlist();
+}
+
+function saveWatchlist() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(watchlist));
+  window.dispatchEvent(new Event('storage'));
+  renderWatchlist();
+}
+
+async function searchTitles(query, source) {
+  const resultsDiv = document.getElementById('searchResults');
+  resultsDiv.innerHTML = '<div class="loading">searching</div>';
+
+  try {
+    if (source === 'omdb') {
+      const res = await fetch(`${OMDB_API}&s=${encodeURIComponent(query)}`);
+      const data = await res.json();
+      
+      if (data.Response === 'True') {
+        displayResults(data.Search.slice(0, 5).map(item => ({
+          id: item.imdbID,
+          title: item.Title,
+          year: item.Year,
+          type: item.Type,
+          source: 'imdb'
+        })));
+      } else {
+        resultsDiv.innerHTML = '<div class="error">no results found</div>';
+      }
+    } else {
+      const res = await fetch(`${JIKAN_API}/anime?q=${encodeURIComponent(query)}&limit=5`);
+      const data = await res.json();
+      
+      if (data.data && data.data.length > 0) {
+        displayResults(data.data.map(item => ({
+          id: `mal-${item.mal_id}`,
+          title: item.title,
+          year: item.year || 'N/A',
+          type: item.type || 'anime',
+          source: 'mal'
+        })));
+      } else {
+        resultsDiv.innerHTML = '<div class="error">no results found</div>';
+      }
+    }
+  } catch (err) {
+    resultsDiv.innerHTML = '<div class="error">search failed. check your connection.</div>';
+  }
+}
+
+function displayResults(results) {
+  const resultsDiv = document.getElementById('searchResults');
+  
+  resultsDiv.innerHTML = results.map(item => {
+    const alreadyAdded = watchlist.some(w => w.id === item.id);
+    return `
+      <div class="result-item">
+        <div class="result-info">
+          <h4>
+            ${item.title}
+            <span class="source-badge ${item.source}">${item.source}</span>
+          </h4>
+          <p>${item.year} • ${item.type}</p>
+        </div>
+        <button class="add-btn" onclick="addToWatchlist('${item.id}', '${item.title.replace(/'/g, "\\'")}', '${item.year}', '${item.type}', '${item.source}')" ${alreadyAdded ? 'disabled' : ''}>
+          ${alreadyAdded ? 'added' : '+ add'}
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+function addToWatchlist(id, title, year, type, source) {
+  watchlist.push({ id, title, year, type, source });
+  saveWatchlist();
+  
+  const searchInput = document.getElementById('searchInput');
+  const sourceSelect = document.getElementById('sourceSelect');
+  searchTitles(searchInput.value, sourceSelect.value);
+}
+
+function removeFromWatchlist(id) {
+  watchlist = watchlist.filter(item => item.id !== id);
+  saveWatchlist();
+}
+
+function renderWatchlist() {
+  const watchlistDiv = document.getElementById('watchlist');
+  const countSpan = document.getElementById('listCount');
+  
+  countSpan.textContent = `${watchlist.length} item${watchlist.length !== 1 ? 's' : ''}`;
+  
+  if (watchlist.length === 0) {
+    watchlistDiv.innerHTML = '<div class="empty-state">queue is empty. search and add titles above.</div>';
+    return;
+  }
+  
+  watchlistDiv.innerHTML = watchlist.map((item, index) => `
+    <div class="watchlist-item" draggable="true" data-id="${item.id}">
+      <div class="item-order">${index + 1}</div>
+      <div class="item-content">
+        <h4>
+          ${item.title}
+          <span class="source-badge ${item.source}">${item.source}</span>
+        </h4>
+        <p>${item.year} • ${item.type}</p>
+      </div>
+      <button class="remove-btn" onclick="removeFromWatchlist('${item.id}')">remove</button>
+    </div>
+  `).join('');
+  
+  attachDragHandlers();
+}
+
+function attachDragHandlers() {
+  const items = document.querySelectorAll('.watchlist-item');
+  
+  items.forEach(item => {
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragend', handleDragEnd);
+    item.addEventListener('dragover', handleDragOver);
+    item.addEventListener('drop', handleDrop);
+    item.addEventListener('dragleave', handleDragLeave);
+  });
+}
+
+function handleDragStart(e) {
+  draggedItem = this;
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+  this.classList.remove('dragging');
+  document.querySelectorAll('.watchlist-item').forEach(item => {
+    item.classList.remove('drag-over');
+  });
+}
+
+function handleDragOver(e) {
+  if (e.preventDefault) {
+    e.preventDefault();
+  }
+  e.dataTransfer.dropEffect = 'move';
+  
+  const afterElement = getDragAfterElement(this, e.clientY);
+  if (afterElement == null) {
+    this.classList.add('drag-over');
+  } else {
+    this.classList.remove('drag-over');
+  }
+  
+  return false;
+}
+
+function handleDrop(e) {
+  if (e.stopPropagation) {
+    e.stopPropagation();
+  }
+  
+  if (draggedItem !== this) {
+    const draggedId = draggedItem.dataset.id;
+    const targetId = this.dataset.id;
+    
+    const draggedIndex = watchlist.findIndex(item => item.id === draggedId);
+    const targetIndex = watchlist.findIndex(item => item.id === targetId);
+    
+    const [removed] = watchlist.splice(draggedIndex, 1);
+    watchlist.splice(targetIndex, 0, removed);
+    
+    saveWatchlist();
+  }
+  
+  return false;
+}
+
+function handleDragLeave(e) {
+  this.classList.remove('drag-over');
+}
+
+function getDragAfterElement(container, y) {
+  const draggableElements = [...document.querySelectorAll('.watchlist-item:not(.dragging)')];
+  
+  return draggableElements.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    
+    if (offset < 0 && offset > closest.offset) {
+      return { offset: offset, element: child };
+    } else {
+      return closest;
+    }
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+document.getElementById('searchBtn').addEventListener('click', () => {
+  const query = document.getElementById('searchInput').value.trim();
+  const source = document.getElementById('sourceSelect').value;
+  
+  if (query) {
+    searchTitles(query, source);
+  }
+});
+
+document.getElementById('searchInput').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    const query = e.target.value.trim();
+    const source = document.getElementById('sourceSelect').value;
+    
+    if (query) {
+      searchTitles(query, source);
+    }
+  }
+});
+
+window.addEventListener('storage', (e) => {
+  if (e.key === STORAGE_KEY) {
+    loadWatchlist();
+  }
+});
+
+loadWatchlist();
+</script>
+
+</body>
+</html>
