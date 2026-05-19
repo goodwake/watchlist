@@ -387,19 +387,27 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const watchlistRef = db.ref('watchlist');
+const itemsRef = db.ref('items');
 
 let watchlist = [];
 let draggedItem = null;
 
 // Load watchlist from Firebase
-watchlistRef.on('value', (snapshot) => {
-  watchlist = snapshot.val() || [];
+itemsRef.on('value', (snapshot) => {
+  const items = snapshot.val() || {};
+  watchlist = Object.keys(items)
+    .map(key => ({ ...items[key], key }))
+    .sort((a, b) => a.order - b.order);
   renderWatchlist();
 });
 
 function saveWatchlist() {
-  watchlistRef.set(watchlist);
+  // Update order for all items
+  const updates = {};
+  watchlist.forEach((item, index) => {
+    updates[`${item.key}/order`] = index;
+  });
+  itemsRef.update(updates);
 }
 
 function addToWatchlist() {
@@ -415,18 +423,22 @@ function addToWatchlist() {
     return;
   }
   
-  const id = Date.now().toString();
-  watchlist.push({ id, title, year, type });
-  saveWatchlist();
+  const newItemRef = itemsRef.push();
+  newItemRef.set({
+    title,
+    year,
+    type,
+    order: watchlist.length,
+    timestamp: Date.now()
+  });
   
   titleInput.value = '';
   yearInput.value = '';
   titleInput.focus();
 }
 
-function removeFromWatchlist(id) {
-  watchlist = watchlist.filter(item => item.id !== id);
-  saveWatchlist();
+function removeFromWatchlist(key) {
+  itemsRef.child(key).remove();
 }
 
 function renderWatchlist() {
@@ -441,13 +453,13 @@ function renderWatchlist() {
   }
   
   watchlistDiv.innerHTML = watchlist.map((item, index) => `
-    <div class="watchlist-item" draggable="true" data-id="${item.id}">
+    <div class="watchlist-item" draggable="true" data-key="${item.key}">
       <div class="item-order">${index + 1}</div>
       <div class="item-content">
         <h4>${item.title}</h4>
         <p>${item.year} • ${item.type}</p>
       </div>
-      <button class="remove-btn" onclick="removeFromWatchlist('${item.id}')">remove</button>
+      <button class="remove-btn" onclick="removeFromWatchlist('${item.key}')">remove</button>
     </div>
   `).join('');
   
@@ -501,11 +513,11 @@ function handleDrop(e) {
   }
   
   if (draggedItem !== this) {
-    const draggedId = draggedItem.dataset.id;
-    const targetId = this.dataset.id;
+    const draggedKey = draggedItem.dataset.key;
+    const targetKey = this.dataset.key;
     
-    const draggedIndex = watchlist.findIndex(item => item.id === draggedId);
-    const targetIndex = watchlist.findIndex(item => item.id === targetId);
+    const draggedIndex = watchlist.findIndex(item => item.key === draggedKey);
+    const targetIndex = watchlist.findIndex(item => item.key === targetKey);
     
     const [removed] = watchlist.splice(draggedIndex, 1);
     watchlist.splice(targetIndex, 0, removed);
